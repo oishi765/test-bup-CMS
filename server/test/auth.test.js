@@ -317,6 +317,49 @@ test('peer review scopes assignments, blocks conflicts, validates reviews, prote
   assert.equal(conflict.body.data.status,'conflict_declared');await reviewerAgent.get(`/api/reviewer/assignments/${secondAssignment.body.data.id}`).expect(403);
   await reviewerAgent.post(`/api/submissions/${second.id}/download-link`).set('Origin',ORIGIN).set('X-CSRF-Token',downloadToken).send({versionId:conflictVersion.id}).expect(403);
   await reviewerAgent.put(`/api/reviewer/assignments/${secondAssignment.body.data.id}/review`).set('Origin',ORIGIN).set('X-CSRF-Token',downloadToken).send({action:'submit',criterionScores:scores,recommendation:'accept',commentsToAuthors:'Review'}).expect(409);
+
+  // Invalid status transitions, decline, and re-review round lifecycle
+  const third=(await testPool.query(`insert into public.submissions(conference_id,submitted_by,title,abstract,status,paper_code)
+    values($1,$2,'Re-review lifecycle paper','Abstract for testing multi-round review and decline transitions.','submitted','BUP-TEST-REREVIEW') returning id`,[conferenceOne,authorAccount.id])).rows[0];
+  await testPool.query(`insert into public.authors(submission_id,user_id,full_name,email,author_order) values($1,$2,'Paper Author','author@example.test',1)`,[third.id,authorAccount.id]);
+  const thirdVersion=(await testPool.query(`insert into public.submission_versions(submission_id,version_number,version_type,object_key,original_filename,file_size,sha256,uploaded_by) values($1,1,'initial',$2,'third.pdf',32,$3,$4) returning id`,[third.id,`${third.id}/private.pdf`,'c'.repeat(64),authorAccount.id])).rows[0];
+
+  const thirdAssignment=await editor.post(`/api/admin/conferences/${conferenceOne}/review-assignments`).set('Origin',ORIGIN).set('X-CSRF-Token',decisionToken).send({submissionId:third.id,reviewerId:reviewer.id,reviewRound:1}).expect(201);
+  const thirdRevId=thirdAssignment.body.data.id;
+
+  // Reviewer accepts assignment
+  await reviewerAgent.patch(`/api/reviewer/assignments/${thirdRevId}/status`).set('Origin',ORIGIN).set('X-CSRF-Token',downloadToken).send({status:'accepted'}).expect(200);
+  // Cannot re-accept or decline once accepted (invalid transition -> 409)
+  await reviewerAgent.patch(`/api/reviewer/assignments/${thirdRevId}/status`).set('Origin',ORIGIN).set('X-CSRF-Token',downloadToken).send({status:'declined'}).expect(409);
+
+  // Reviewer submits round 1 review requesting revision
+  await reviewerAgent.put(`/api/reviewer/assignments/${thirdRevId}/review`).set('Origin',ORIGIN).set('X-CSRF-Token',downloadToken).send({action:'submit',criterionScores:scores,recommendation:'major_revision',commentsToAuthors:'Extensive revision required.'}).expect(200);
+
+  // Editor records revision_required
+  await editor.post(`/api/admin/conferences/${conferenceOne}/submissions/${third.id}/decision`).set('Origin',ORIGIN).set('X-CSRF-Token',decisionToken).send({status:'revision_required',authorNote:'Please address major reviewer comments.',editorNote:'Check methodology in next round.',reviewRound:1}).expect(201);
+
+  // Paper status is now revision_required; author uploads revision -> status returns to submitted
+  await testPool.query(`insert into public.submission_versions(submission_id,version_number,version_type,object_key,original_filename,file_size,sha256,uploaded_by) values($1,2,'revision',$2,'revised.pdf',40,$3,$4)`,[third.id,`${third.id}/v2.pdf`,'d'.repeat(64),authorAccount.id]);
+  await testPool.query("update public.submissions set status='submitted',updated_at=now() where id=$1",[third.id]);
+
+  // Round 2 assignment to the same reviewer
+  const roundTwoAssignment=await editor.post(`/api/admin/conferences/${conferenceOne}/review-assignments`).set('Origin',ORIGIN).set('X-CSRF-Token',decisionToken).send({submissionId:third.id,reviewerId:reviewer.id,reviewRound:2}).expect(201);
+  assert.equal(roundTwoAssignment.body.data.reviewRound,2);
+
+  // Cannot assign same reviewer to round 2 again (duplicate in same round -> 409)
+  await editor.post(`/api/admin/conferences/${conferenceOne}/review-assignments`).set('Origin',ORIGIN).set('X-CSRF-Token',decisionToken).send({submissionId:third.id,reviewerId:reviewer.id,reviewRound:2}).expect(409);
+
+  // Reviewer submits round 2 review accepting the revision
+  await reviewerAgent.put(`/api/reviewer/assignments/${roundTwoAssignment.body.data.id}/review`).set('Origin',ORIGIN).set('X-CSRF-Token',downloadToken).send({action:'submit',criterionScores:scores,recommendation:'accept',commentsToAuthors:'Revisions are satisfactory.'}).expect(200);
+
+  // Editor records final acceptance
+  await editor.post(`/api/admin/conferences/${conferenceOne}/submissions/${third.id}/decision`).set('Origin',ORIGIN).set('X-CSRF-Token',decisionToken).send({status:'accepted',authorNote:'Accepted after satisfactory revision.',reviewRound:2}).expect(201);
+
+  // Decision history contains both rounds
+  const decisionHistory=(await testPool.query('select review_round,status from public.submission_decisions where submission_id=$1 order by review_round asc',[third.id])).rows;
+  assert.equal(decisionHistory.length,2);
+  assert.equal(decisionHistory[0].status,'revision_required');
+  assert.equal(decisionHistory[1].status,'accepted');
 });
 
 test('password reset tokens expire and can be used only once; SMTP absence is reported honestly', async () => {

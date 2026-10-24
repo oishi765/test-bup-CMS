@@ -8,6 +8,11 @@ import accessRouter from './auth/accessRoutes.js';
 import adminRouter from './routes/admin.js';
 import submissionsRouter from './routes/submissions.js';
 import reviewsRouter from './routes/reviews.js';
+import registrationsRouter from './routes/registrations.js';
+import schedulesRouter from './routes/schedules.js';
+import certificatesRouter from './routes/certificates.js';
+import notificationsRouter from './routes/notifications.js';
+import analyticsRouter from './routes/analytics.js';
 import { loadSession } from './auth/middleware.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -27,6 +32,11 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api', submissionsRouter);
   app.use('/api', reviewsRouter);
+  app.use('/api', registrationsRouter);
+  app.use('/api', schedulesRouter);
+  app.use('/api', certificatesRouter);
+  app.use('/api', notificationsRouter);
+  app.use('/api/admin', analyticsRouter);
   app.use('/api', accessRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', publicRouter);

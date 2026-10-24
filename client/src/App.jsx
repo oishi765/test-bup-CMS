@@ -1,8 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AdminWorkspace from './AdminWorkspace.jsx';
 import AuthorSubmissions from './AuthorSubmissions.jsx';
 import ReviewerWorkspace from './ReviewerWorkspace.jsx';
 import ReviewAdmin from './ReviewAdmin.jsx';
+import RegistrationPage from './RegistrationPage.jsx';
+import RegistrationAdmin from './RegistrationAdmin.jsx';
+import SchedulePage from './SchedulePage.jsx';
+import ScheduleAdmin from './ScheduleAdmin.jsx';
+import ChairWorkspace from './ChairWorkspace.jsx';
+import CheckInPage from './CheckInPage.jsx';
+import CertificatesPage from './CertificatesPage.jsx';
+import CertificateAdmin from './CertificateAdmin.jsx';
+import AnalyticsDashboard from './AnalyticsDashboard.jsx';
+import NotificationBell from './NotificationsCenter.jsx';
 
 const API = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROUTES = [
@@ -12,7 +22,7 @@ const ROUTES = [
   ['Contact', '/contact'], ['FAQ', '/faq'], ['Login', '/login'], ['Register', '/register'],
   ['Forgot password', '/forgot-password'], ['Dashboard', '/dashboard'], ['Profile', '/profile'],
   ['Change password', '/change-password'], ['Privacy policy', '/privacy-policy'], ['Terms', '/terms'],
-  ['Certificate verification', '/certificate-verification'],
+  ['Certificate verification', '/certificate-verification'], ['My certificates', '/certificates'],
 ];
 
 async function request(path, options = {}) {
@@ -66,7 +76,7 @@ function Header() {
   useEffect(() => { request('/api/auth/session').then((session) => setUser(session.user)).catch(() => setUser(null)); }, []);
   const primary = [['Home', '/'], ['Conferences', '/conferences'], ['Submission', '/submission-guidelines'], ['About', '/about']];
   async function logout() { setLogoutError(''); try { await authMutation('/api/auth/logout', {}); setUser(null); window.location.href = '/'; } catch (error) { setLogoutError(error.message); } }
-  return <header className="site-header"><div className="header-inner"><a className="brand" href="/" aria-label="BUP Conference Management home"><img src="/logo.png" alt="Bangladesh University of Professionals"/><span>Conference<br/><b>Management</b></span></a><button className="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}><span/><span/><span/></button><nav className={`main-nav ${open ? 'is-open' : ''}`} aria-label="Main navigation">{primary.map(([label, href]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}<details className="nav-more"><summary>Explore <span aria-hidden="true">⌄</span></summary><div className="nav-dropdown">{ROUTES.filter(([, href]) => !primary.some(([, primaryHref]) => href === primaryHref)).map(([label, href]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}</div></details>{user ? <><a href="/dashboard" onClick={() => setOpen(false)}>My dashboard</a><button className="nav-logout" type="button" onClick={logout}>Sign out</button></> : <a className="nav-login" href="/login" onClick={() => setOpen(false)}>Sign in <span aria-hidden="true">↗</span></a>}{logoutError && <span className="nav-error" role="alert">{logoutError}</span>}</nav></div></header>;
+  return <header className="site-header"><div className="header-inner"><a className="brand" href="/" aria-label="BUP Conference Management home"><img src="/logo.png" alt="Bangladesh University of Professionals"/><span>Conference<br/><b>Management</b></span></a><button className="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}><span/><span/><span/></button><nav className={`main-nav ${open ? 'is-open' : ''}`} aria-label="Main navigation">{primary.map(([label, href]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}<details className="nav-more"><summary>Explore <span aria-hidden="true">⌄</span></summary><div className="nav-dropdown">{ROUTES.filter(([, href]) => !primary.some(([, primaryHref]) => href === primaryHref)).map(([label, href]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}</div></details>{user ? <><a href="/dashboard" onClick={() => setOpen(false)}>Dashboard</a><a href="/certificates" onClick={() => setOpen(false)}>Certificates</a><NotificationBell user={user}/><button className="nav-logout" type="button" onClick={logout}>Sign out</button></> : <a className="nav-login" href="/login" onClick={() => setOpen(false)}>Sign in <span aria-hidden="true">↗</span></a>}{logoutError && <span className="nav-error" role="alert">{logoutError}</span>}</nav></div></header>;
 }
 
 function Footer() {
@@ -137,7 +147,10 @@ function DatesPage() {
   return <ConferenceResourcePage title="Important dates" description="Keep up with published submission, registration and event milestones." resource="dates" emptyTitle="No dates published" renderItem={(item) => <article className="data-row" key={item.id}><div className="date-block"><span>{item.starts_at ? new Intl.DateTimeFormat('en', { day: '2-digit', timeZone: item.timezone || 'Asia/Dhaka' }).format(new Date(item.starts_at)) : '—'}</span><small>{item.starts_at ? new Intl.DateTimeFormat('en', { month: 'short', timeZone: item.timezone || 'Asia/Dhaka' }).format(new Date(item.starts_at)) : 'TBA'}</small></div><div><h2>{item.label}</h2><p>{item.description || 'See conference updates for details.'}</p>{item.starts_at && <span className="muted">{formatDate(item.starts_at, item.timezone)}{item.ends_at ? ` – ${formatDate(item.ends_at, item.timezone)}` : ''}</span>}</div></article>}/>;
 }
 function TracksPage() { return <ConferenceResourcePage title="Tracks" description="Explore the research themes and programme tracks announced for each conference." resource="tracks" renderItem={(item) => <article className="track-card" key={item.id}><span className="track-icon" aria-hidden="true">↗</span><h2>{item.name}</h2><p>{item.description || 'Track details will be provided by the organizers.'}</p>{item.topics?.length>0&&<ul>{item.topics.map(topic=><li key={topic.id}>{topic.name}{topic.description?` — ${topic.description}`:''}</li>)}</ul>}</article>}/>; }
-function SchedulePage() { return <ConferenceResourcePage title="Schedule" description="View the programme sessions published by the conference organizers." resource="schedule" renderItem={(item) => <article className="schedule-row" key={item.id}><div className="schedule-time"><strong>{formatDate(item.starts_at, item.timezone, { hour: '2-digit', minute: '2-digit' })}</strong><span>{formatDate(item.starts_at, item.timezone, { dateStyle: 'medium' })}</span></div><div><h2>{item.title}</h2><p>{item.description || 'Session details will be shared by organizers.'}</p><div className="card-meta"><span>{item.track_name || 'General session'}</span><span>{item.venue || 'Venue to be announced'}</span><span>{formatDate(item.ends_at, item.timezone, { hour: '2-digit', minute: '2-digit' })}</span></div></div></article>}/>; }
+function ScheduleView() {
+  const { data } = useData('/api/auth/session');
+  return <SchedulePage user={data?.user || null}/>;
+}
 function PeoplePage({ kind }) {
   const isSpeaker = kind === 'Speakers'; const endpoint = isSpeaker ? '/api/speakers' : '/api/committee';
   const [state, retry] = useRetry(endpoint);
@@ -163,9 +176,148 @@ function ContactPage() {
   return <><PageTitle title="Contact" lead="Send a question to the BUP conference team."/><section className="form-layout"><div className="form-aside"><h2>We’re here to help.</h2><p>For conference-specific questions, include the event name so the team can direct your message.</p><p className="muted">Messages are sent to the conference database for follow-up.</p></div><form className="form-card" onSubmit={submit}><label>Your name<input name="name" autoComplete="name" required maxLength="160"/></label><label>Email address<input name="email" type="email" autoComplete="email" required maxLength="254"/></label><label>Subject<input name="subject" required maxLength="200"/></label><label>Message<textarea name="message" rows="5" required maxLength="5000"/></label>{state.error && <p className="form-message error" role="alert">{state.error}</p>}{state.success && <p className="form-message success" role="status">{state.success}</p>}<button className="button button-green" type="submit" disabled={state.sending}>{state.sending ? 'Sending…' : 'Send message'} <span aria-hidden="true">→</span></button></form></section></>;
 }
 function CertificatePage() {
-  const [number, setNumber] = useState(''); const [query, setQuery] = useState(''); const [state, setState] = useState({ loading: false, data: null, error: '' });
-  async function submit(event) { event.preventDefault(); setQuery(number.trim()); setState({ loading: true, data: null, error: '' }); try { const data = await request(`/api/certificates/verify/${encodeURIComponent(number.trim())}`); setState({ loading: false, data, error: '' }); } catch (error) { setState({ loading: false, data: null, error: error.message }); } }
-  return <><PageTitle title="Certificate verification" lead="Check whether a certificate number has been issued by a conference in this system."/><section className="verify-wrap"><form className="verify-form" onSubmit={submit}><label htmlFor="certificate-number">Certificate number</label><div><input id="certificate-number" value={number} onChange={(event) => setNumber(event.target.value)} required maxLength="100" autoComplete="off" placeholder="Enter the number on your certificate"/><button className="button button-green" type="submit" disabled={state.loading}>Verify</button></div></form>{state.loading && <Loading label="Checking certificate…"/>}{state.error && <ErrorState message={state.error} />}{state.data && <div className={`verification-result ${state.data.valid ? 'valid' : 'invalid'}`} role="status"><span className="result-icon" aria-hidden="true">{state.data.valid ? '✓' : '!'}</span><div><h2>{state.data.valid ? 'Certificate verified' : 'No matching certificate'}</h2>{state.data.valid ? <dl><dt>Name</dt><dd>{state.data.full_name}</dd><dt>Conference</dt><dd>{state.data.conference_title}</dd><dt>Certificate type</dt><dd className="capitalize">{state.data.certificate_type}</dd><dt>Issued</dt><dd>{formatDate(state.data.issued_at)}</dd></dl> : <p>No certificate matches “{query}”. Check the number and try again.</p>}</div></div>}</section></>;
+  const params = new URLSearchParams(window.location.search);
+  const initialNumber = params.get('number') || '';
+  const [number, setNumber] = useState(initialNumber);
+  const [query, setQuery] = useState(initialNumber);
+  const [state, setState] = useState({ loading: false, data: null, error: '' });
+
+  async function checkCertificate(num) {
+    if (!num) return;
+    setQuery(num.trim());
+    setState({ loading: true, data: null, error: '' });
+    try {
+      const data = await request(`/api/certificates/verify/${encodeURIComponent(num.trim())}`);
+      setState({ loading: false, data, error: '' });
+    } catch (error) {
+      setState({ loading: false, data: null, error: error.message });
+    }
+  }
+
+  useEffect(() => {
+    if (initialNumber) {
+      checkCertificate(initialNumber);
+    }
+  }, []);
+
+  async function submit(event) {
+    event.preventDefault();
+    checkCertificate(number);
+  }
+
+  return (
+    <>
+      <PageTitle
+        title="Certificate verification"
+        lead="Check whether a certificate number has been issued by a conference in this system and verify its current standing."
+      />
+      <section className="verify-wrap">
+        <form className="verify-form" onSubmit={submit}>
+          <label htmlFor="certificate-number">Certificate number</label>
+          <div>
+            <input
+              id="certificate-number"
+              value={number}
+              onChange={(event) => setNumber(event.target.value)}
+              required
+              maxLength="100"
+              autoComplete="off"
+              placeholder="e.g. BUP-CERT-2026-BUP-CONF-ATT-1A2B3C"
+            />
+            <button className="button button-green" type="submit" disabled={state.loading}>
+              Verify
+            </button>
+          </div>
+        </form>
+
+        {state.loading && <Loading label="Checking certificate in university records…" />}
+        {state.error && <ErrorState message={state.error} />}
+
+        {state.data && (
+          <div
+            className={`verification-result ${
+              state.data.valid && !state.data.is_revoked ? 'valid' : 'invalid'
+            }`}
+            role="status"
+          >
+            <span className="result-icon" aria-hidden="true">
+              {state.data.valid && !state.data.is_revoked ? '✓' : '!'}
+            </span>
+            <div>
+              <h2>
+                {!state.data.valid
+                  ? 'No matching certificate'
+                  : state.data.is_revoked
+                  ? 'Certificate Revoked'
+                  : 'Certificate Verified & Active'}
+              </h2>
+
+              {state.data.valid ? (
+                <>
+                  {state.data.is_revoked && (
+                    <div
+                      style={{
+                        background: '#fee2e2',
+                        borderLeft: '4px solid #ef4444',
+                        padding: '10px 12px',
+                        borderRadius: '4px',
+                        color: '#991b1b',
+                        marginBottom: '14px',
+                        fontSize: '12px',
+                      }}
+                    >
+                      <strong>This certificate was revoked by the conference authority.</strong>
+                      <br />
+                      <strong>Reason:</strong> {state.data.revocation_reason || 'Administrative action'}
+                      <br />
+                      <strong>Revoked on:</strong> {formatDate(state.data.revoked_at)}
+                    </div>
+                  )}
+
+                  <dl>
+                    <dt>Certificate Number</dt>
+                    <dd>
+                      <code>{state.data.certificate_number}</code>
+                    </dd>
+                    <dt>Recipient Name</dt>
+                    <dd>{state.data.full_name}</dd>
+                    <dt>Conference</dt>
+                    <dd>{state.data.conference_title}</dd>
+                    <dt>Certificate Type</dt>
+                    <dd className="capitalize">{state.data.certificate_type}</dd>
+                    <dt>Issued Date</dt>
+                    <dd>{formatDate(state.data.issued_at)}</dd>
+                    <dt>Status</dt>
+                    <dd>
+                      <strong style={{ color: state.data.is_revoked ? '#b91c1c' : '#15803d' }}>
+                        {state.data.is_revoked ? 'Revoked (Invalid)' : 'Valid & Genuine'}
+                      </strong>
+                    </dd>
+                  </dl>
+
+                  {!state.data.is_revoked && state.data.download_url && (
+                    <div style={{ marginTop: '16px' }}>
+                      <a
+                        href={`${API}${state.data.download_url}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="button button-green"
+                        style={{ padding: '8px 16px', fontSize: '11px' }}
+                      >
+                        Download Verified Certificate PDF ⤓
+                      </a>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p>No active or historical certificate matches “{query}”. Verify the code format and try again.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+    </>
+  );
 }
 function AuthPage({ type }) {
   const [state, setState] = useState({ sending: false, error: '', success: '' });
@@ -218,9 +370,14 @@ function ProtectedPage({ children, role }) {
   return children(data.user);
 }
 
+function RegistrationView() {
+  const { data } = useData('/api/auth/session');
+  return <RegistrationPage user={data?.user || null}/>;
+}
+
 function DashboardPage() {
   const [state, retry] = useRetry('/api/auth/dashboard');
-  return <ProtectedPage>{(user) => <><PageTitle title={`Welcome, ${user.fullName}`} lead="Your conference workspaces and account activity."/><section className="dashboard-content"><div className="dashboard-toolbar"><a className="button button-outline" href="/profile">Edit profile</a><a className="button button-outline" href="/author/submissions">Author submissions</a>{user.roles.includes('reviewer')&&<a className="button button-outline" href="/reviewer">Reviewer workspace</a>}{(user.roles.includes('conference_admin')||user.roles.includes('super_admin'))&&<a className="button button-outline" href="/admin/reviews">Peer review management</a>}<a className="button button-outline" href="/change-password">Change password</a></div><RequestState {...state} retry={retry}>{state.data?.cards?.length ? <div className="dashboard-grid">{state.data.cards.map((card) => <article className="dashboard-card" key={card.role}><p className="eyebrow">{card.role.replaceAll('_',' ')}</p><h2>{card.title}</h2>{card.role === 'super_admin' && <p>{card.users} accounts · {card.conferences} conferences</p>}{card.conferences && Array.isArray(card.conferences) && <ul>{card.conferences.map((item) => <li key={item.id}><a href={`/conferences/${item.id}`}>{item.title}</a></li>)}</ul>}{card.submissions && <DataLinks rows={card.submissions} empty="No submissions yet." titleKey="title"/>}{card.reviews && <DataLinks rows={card.reviews} empty="No reviews assigned." titleKey="submission_title"/>}{card.registrations && <DataLinks rows={card.registrations} empty="No registrations yet." titleKey="title"/>}{card.sessions && <DataLinks rows={card.sessions} empty="No sessions assigned." titleKey="session_title"/>}<a className="text-link" href={card.href}>Open workspace →</a></article>)}</div> : <EmptyState title="No role workspaces assigned">If you expected access, contact a Super Admin or the relevant conference organizer.</EmptyState>}</RequestState></section></> }</ProtectedPage>;
+  return <ProtectedPage>{(user) => <><PageTitle title={`Welcome, ${user.fullName}`} lead="Your conference workspaces and account activity."/><section className="dashboard-content"><div className="dashboard-toolbar"><a className="button button-outline" href="/profile">Edit profile</a><a className="button button-outline" href="/schedule">Conference schedule</a><a className="button button-outline" href="/author/submissions">Author submissions</a><a className="button button-outline" href="/registrations">My registrations</a><a className="button button-outline" href="/certificates">My certificates</a>{user.roles.includes('reviewer')&&<a className="button button-outline" href="/reviewer">Reviewer workspace</a>}{user.roles.includes('session_chair')&&<a className="button button-outline" href="/chair">Chair workspace</a>}{(user.roles.includes('conference_admin')||user.roles.includes('super_admin'))&&<><a className="button button-outline" href="/admin/reviews">Peer review</a><a className="button button-outline" href="/admin/registrations">Registration & payments</a><a className="button button-outline" href="/admin/schedule">Schedule & attendance</a><a className="button button-outline" href="/admin/certificates">Certificates</a><a className="button button-outline" href="/admin/analytics">Analytics & reports</a></>}<a className="button button-outline" href="/change-password">Change password</a></div><RequestState {...state} retry={retry}>{state.data?.cards?.length ? <div className="dashboard-grid">{state.data.cards.map((card) => <article className="dashboard-card" key={card.role}><p className="eyebrow">{card.role.replaceAll('_',' ')}</p><h2>{card.title}</h2>{card.role === 'super_admin' && <p>{card.users} accounts · {card.conferences} conferences</p>}{card.conferences && Array.isArray(card.conferences) && <ul>{card.conferences.map((item) => <li key={item.id}><a href={`/conferences/${item.id}`}>{item.title}</a></li>)}</ul>}{card.submissions && <DataLinks rows={card.submissions} empty="No submissions yet." titleKey="title"/>}{card.reviews && <DataLinks rows={card.reviews} empty="No reviews assigned." titleKey="submission_title"/>}{card.registrations && <DataLinks rows={card.registrations} empty="No registrations yet." titleKey="title"/>}{card.sessions && <DataLinks rows={card.sessions} empty="No sessions assigned." titleKey="session_title"/>}<a className="text-link" href={card.role === 'attendee' ? '/registrations' : card.href}>Open workspace →</a></article>)}</div> : <EmptyState title="No role workspaces assigned">If you expected access, contact a Super Admin or the relevant conference organizer.</EmptyState>}</RequestState></section></> }</ProtectedPage>;
 }
 function DataLinks({ rows, empty, titleKey }) { return rows.length ? <ul>{rows.map((item) => <li key={item.id}>{item[titleKey]}{item.status ? ` · ${item.status.replaceAll('_',' ')}` : ''}</li>)}</ul> : <p className="muted">{empty}</p>; }
 
@@ -250,11 +407,17 @@ export default function App() {
   else if (conferenceMatch) page = <ConferenceDetail id={conferenceMatch[1]}/>;
   else if (pathname === '/important-dates') page = <DatesPage/>;
   else if (pathname === '/tracks') page = <TracksPage/>;
-  else if (pathname === '/schedule') page = <SchedulePage/>;
+  else if (pathname === '/schedule') page = <ScheduleView/>;
+  else if (pathname === '/admin/schedule') page = <ProtectedPage role="conference_admin">{()=><ScheduleAdmin/>}</ProtectedPage>;
+  else if (pathname === '/chair') page = <ProtectedPage>{()=><ChairWorkspace/>}</ProtectedPage>;
+  else if (pathname === '/check-in') page = <ProtectedPage>{(user)=><CheckInPage user={user}/>}</ProtectedPage>;
   else if (pathname === '/committee' || pathname === '/speakers') page = <PeoplePage kind={pathname === '/committee' ? 'Committee' : 'Speakers'}/>;
   else if (pathname === '/faq') page = <DynamicFAQPage/>;
   else if (pathname === '/contact') page = <ContactPage/>;
   else if (pathname === '/certificate-verification') page = <CertificatePage/>;
+  else if (pathname === '/certificates') page = <ProtectedPage>{(user)=><CertificatesPage user={user}/>}</ProtectedPage>;
+  else if (pathname === '/admin/certificates') page = <ProtectedPage role="conference_admin">{()=><CertificateAdmin/>}</ProtectedPage>;
+  else if (pathname === '/admin/analytics') page = <ProtectedPage role="conference_admin">{()=><AnalyticsDashboard/>}</ProtectedPage>;
   else if (['/login','/register','/forgot-password'].includes(pathname)) page = <AuthPage type={pathname}/>;
   else if (pathname === '/reset-password') page = <ResetPasswordPage/>;
   else if (pathname === '/verify-email') page = <VerifyEmailPage/>;
@@ -262,7 +425,9 @@ export default function App() {
   else if (pathname === '/author/submissions' || pathname === '/submissions/new') page = <ProtectedPage>{(user)=><AuthorSubmissions user={user}/>}</ProtectedPage>;
   else if (pathname === '/reviewer') page = <ProtectedPage role="reviewer">{()=><ReviewerWorkspace/>}</ProtectedPage>;
   else if (pathname === '/admin/reviews') page = <ProtectedPage role="conference_admin">{()=><ReviewAdmin/>}</ProtectedPage>;
+  else if (pathname === '/admin/registrations') page = <ProtectedPage role="conference_admin">{()=><RegistrationAdmin/>}</ProtectedPage>;
   else if (pathname === '/admin' || pathname === '/organizer') page = <AdminWorkspace/>;
+  else if (pathname === '/registration-information' || pathname === '/registrations') page = <RegistrationView/>;
   else if (pathname === '/profile') page = <ProfilePage/>;
   else if (pathname === '/change-password') page = <ChangePasswordPage/>;
   else if (pathname === '/admin/users') page = <AdminUsersPage/>;

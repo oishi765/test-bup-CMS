@@ -77,14 +77,6 @@ router.patch('/reviewer/profile',dbRequired,requireAuth,requireCsrf,async(req,re
     returning expertise,availability,biography,updated_at`,[req.user.id,parsed.data.expertise,parsed.data.availability,parsed.data.biography||null]);res.json({data:rows[0]});}catch(e){next(e);}
 });
 
-router.get('/notifications',dbRequired,requireAuth,async(req,res,next)=>{
-  try{const {rows}=await pool.query(`select id,conference_id,title,body,read_at,created_at from public.notifications where user_id=$1 order by created_at desc limit 50`,[req.user.id]);res.json({data:rows});}catch(e){next(e);}
-});
-router.patch('/notifications/:notificationId/read',dbRequired,requireAuth,requireCsrf,async(req,res,next)=>{
-  if(!uuid.safeParse(req.params.notificationId).success)return fail(res,400,'Notification ID is invalid.');
-  try{const {rows}=await pool.query(`update public.notifications set read_at=coalesce(read_at,now()) where id=$1 and user_id=$2 returning id,read_at`,[req.params.notificationId,req.user.id]);if(!rows[0])return fail(res,404,'Notification not found.');res.json({data:rows[0]});}catch(e){next(e);}
-});
-
 router.get('/reviewer/assignments',dbRequired,requireAuth,async(req,res,next)=>{
   try{
     const {rows}=await pool.query(`select r.id,r.submission_id,r.status,r.review_round,r.assigned_at,r.due_at,r.submitted_at,

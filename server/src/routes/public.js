@@ -174,13 +174,48 @@ router.get('/certificates/verify/:number', async (req, res, next) => {
     requireDatabase();
     const number = String(req.params.number).trim().slice(0, 100);
     const { rows } = await pool.query(
-      `select cert.certificate_number, cert.certificate_type, cert.issued_at,
-       u.full_name, c.title as conference_title
-       from public.certificates cert join public.users u on u.id = cert.user_id
+      `select cert.id, cert.certificate_number, cert.certificate_type, cert.issued_at,
+              cert.is_revoked, cert.revocation_reason, cert.revoked_at,
+              u.full_name, u.institution, c.id as conference_id, c.title as conference_title
+       from public.certificates cert
+       join public.users u on u.id = cert.user_id
        join public.conferences c on c.id = cert.conference_id
-       where cert.certificate_number = $1 and c.status in ('published','submission_open','in_review','completed') limit 1`, [number]);
-    if (!rows[0]) return res.json({ data: { valid: false } });
-    res.json({ data: { valid: true, ...rows[0] } });
+       where cert.certificate_number = $1 and c.status in ('published','submission_open','in_review','completed')
+       limit 1`,
+      [number]
+    );
+    if (!rows[0]) return res.json({ data: { valid: false, status: 'not_found' } });
+
+    const c = rows[0];
+    if (c.is_revoked) {
+      return res.json({
+        data: {
+          valid: false,
+          status: 'revoked',
+          certificate_number: c.certificate_number,
+          certificate_type: c.certificate_type,
+          full_name: c.full_name,
+          conference_title: c.conference_title,
+          revocation_reason: c.revocation_reason,
+          revoked_at: c.revoked_at,
+        },
+      });
+    }
+
+    res.json({
+      data: {
+        valid: true,
+        status: 'valid',
+        id: c.id,
+        certificate_number: c.certificate_number,
+        certificate_type: c.certificate_type,
+        full_name: c.full_name,
+        institution: c.institution,
+        conference_title: c.conference_title,
+        issued_at: c.issued_at,
+        download_url: `/api/certificates/${c.id}/download`,
+      },
+    });
   } catch (error) { next(error); }
 });
 

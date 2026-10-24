@@ -1,91 +1,226 @@
 # BUP Conference Management System
 
-Responsive public conference website and JavaScript foundation using React/Vite, Express, and Supabase Cloud PostgreSQL through `pg`. The app uses server-side authentication and authorization; there is no local PostgreSQL requirement.
+An institutional academic conference management platform designed for the **Bangladesh University of Professionals (BUP)**. Built with JavaScript/JSX, React 18, Vite, Node.js, Express, and cloud-native Supabase PostgreSQL.
 
-## Requirements
+> [!NOTE]
+> **Zero Local PostgreSQL Requirement:** This project is designed exclusively for **Supabase Cloud**. You do not need to install PostgreSQL locally on your machine. All database schemas are executed directly in your browser using the Supabase SQL Editor.
 
-- Node.js 20.19+ or 22.12+ and npm
-- A Supabase Cloud project for live database use
+---
 
-## Windows setup (PowerShell in VS Code)
+## 1. Quick Start Guide (Windows PowerShell)
 
-From the repository root:
+### Prerequisites
+- [Node.js](https://nodejs.org/) v20.19+ or v22.12+ (LTS recommended) and `npm`.
+- A free [Supabase Cloud](https://supabase.com/) account.
+
+### Step 1: Clone & Install Dependencies
+Open PowerShell in VS Code at the project root folder:
 
 ```powershell
+# Copy environment configuration templates
 Copy-Item server\.env.example server\.env
 Copy-Item client\.env.example client\.env
+
+# Install backend dependencies
 npm.cmd --prefix server install
+
+# Install frontend dependencies
 npm.cmd --prefix client install
 ```
 
-In Supabase **SQL Editor**, run `database/schema.sql`, then `database/auth-schema.sql`, `database/admin-dashboard-schema.sql`, `database/submission-workflow-schema.sql`, and `database/peer-review-schema.sql` (safe to re-run). In `server\.env`, set `DATABASE_URL` to the Supabase PostgreSQL connection URI (prefer the pooler URI for hosted deployments). Set a unique `CSRF_SECRET` (generate one with `node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"`), and set `CLIENT_ORIGIN` to the exact frontend origin. Do not put database, CSRF, SMTP, or storage secrets in `client\.env`.
+### Step 2: Configure Supabase Cloud (Browser-Based)
+1. Sign in to [Supabase](https://app.supabase.com) and create a new project (e.g. `bup-cms`).
+2. Go to **Project Settings → Database → Connection string → URI**. Copy the PostgreSQL connection URI.
+3. Open `server\.env` in your editor and paste it:
+   ```env
+   DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+   ```
+4. Generate a secure random CSRF secret and paste it into `server\.env`:
+   ```powershell
+   node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+   ```
+5. In Supabase Dashboard, go to **SQL Editor → New Query**, and execute the migration files in `database/` in this exact order:
+   1. `database/schema.sql`
+   2. `database/auth-schema.sql`
+   3. `database/admin-dashboard-schema.sql`
+   4. `database/submission-workflow-schema.sql`
+   5. `database/peer-review-schema.sql`
+   6. `database/registration-payment-schema.sql`
+   7. `database/scheduling-attendance-schema.sql`
+   8. `database/certificates-analytics-schema.sql`
+6. In Supabase Dashboard, go to **Storage**:
+   - Create a new bucket named `manuscripts` and set it to **Private**.
+   - Create a new bucket named `receipts` and set it to **Private**.
+   - Copy your Project URL and `service_role` secret (from **Project Settings → API**) and add them to `server\.env`:
+     ```env
+     SUPABASE_URL=https://[YOUR-PROJECT-REF].supabase.co
+     SUPABASE_SERVICE_ROLE_KEY=[YOUR-SERVICE-ROLE-SECRET]
+     SUPABASE_STORAGE_BUCKET=manuscripts
+     ```
 
-For production, use HTTPS and set `NODE_ENV=production`; session cookies are then Secure. To require verified emails, set `AUTH_REQUIRE_EMAIL_VERIFICATION=true` and configure SMTP as described in [authentication.md](docs/authentication.md). If SMTP is absent, the API explicitly says email was not sent.
-
-### Create the initial Super Admin
-
-There is no public admin-registration endpoint. Once the schema and server environment are ready, create the first Super Admin interactively:
+### Step 3: Bootstrap the First Super Admin
+Run the interactive CLI utility to create the initial root Super Admin account:
 
 ```powershell
 npm.cmd --prefix server run auth:bootstrap-admin
 ```
+Follow the interactive prompts to enter the admin name, email, and secure password.
 
-The command prompts for credentials, masks the password, hashes it, and refuses to run after a Super Admin already exists. Details and role rules are in [authentication.md](docs/authentication.md).
+### Step 4: Run the Application
+Open two separate PowerShell terminal tabs:
 
-### Start the services
-
-In terminal 1:
-
+**Terminal 1 (Backend API):**
 ```powershell
 npm.cmd --prefix server run dev
 ```
+*API starts at:* `http://localhost:3000`
 
-In terminal 2:
-
+**Terminal 2 (Frontend Client):**
 ```powershell
 npm.cmd --prefix client run dev
 ```
+*Web application opens at:* `http://localhost:5173`
 
-Open the Vite URL (normally `http://localhost:5173`). The API is normally at `http://localhost:3000`. Set `DATABASE_URL` before relying on auth, contact messages, or public conference data.
+---
 
-### Test and build
+## 2. Local URLs Reference
+
+| Page / Workspace | Local URL | Role Access |
+|---|---|---|
+| Public Homepage | `http://localhost:5173/` | Public |
+| Conference Directory | `http://localhost:5173/conferences` | Public |
+| Schedule & Sessions | `http://localhost:5173/schedule` | Public / Presenters |
+| Registration Information | `http://localhost:5173/registration-information` | Public / Attendee |
+| Certificate Verification | `http://localhost:5173/certificate-verification` | Public |
+| Sign In / Sign Up | `http://localhost:5173/login` | Public |
+| Attendee / User Dashboard | `http://localhost:5173/dashboard` | Authenticated |
+| My Registrations & Payments | `http://localhost:5173/registrations` | Attendee |
+| My Claimed Certificates | `http://localhost:5173/certificates` | Authenticated |
+| Author Submissions Portal | `http://localhost:5173/author/submissions` | Author |
+| Reviewer Workspace | `http://localhost:5173/reviewer` | Reviewer |
+| Session Chair Workspace | `http://localhost:5173/chair` | Session Chair |
+| Admin Conference Management | `http://localhost:5173/admin` | Conference Admin / Super Admin |
+| Peer Review Management | `http://localhost:5173/admin/reviews` | Conference Admin / Super Admin |
+| Registration & Payment Verification | `http://localhost:5173/admin/registrations` | Conference Admin / Super Admin |
+| Conference Scheduling & Sessions | `http://localhost:5173/admin/schedule` | Conference Admin / Super Admin |
+| Certificate Management & Revocation | `http://localhost:5173/admin/certificates` | Conference Admin / Super Admin |
+| Live Analytics & Report Exports | `http://localhost:5173/admin/analytics` | Conference Admin / Super Admin |
+
+---
+
+## 3. Automated Test Suites & Verification
+
+The backend includes comprehensive test suites running on an isolated in-memory PostgreSQL engine (`pg-mem`). To run the entire test suite:
 
 ```powershell
 npm.cmd --prefix server test
+```
+
+### Verified Test Results (39 / 39 Passing)
+```text
+✔ non-admin cannot create conference or read admin records
+✔ Super Admin creates, publishes, filters, and audits a conference
+✔ conference edit API saves validated updates
+✔ unauthenticated requests are denied and CSRF is required on mutations
+✔ login attempts from one client IP are rate limited
+✔ registration hashes the password, assigns only Attendee, issues a secure session, and rejects role injection
+✔ login, profile editing, and logout maintain a server-side session
+✔ password change verifies the current password, rotates the session, and invalidates the prior session
+✔ server role checks reject attendee escalation and scope Conference Admin to assigned conference
+✔ Super Admin access is server-authorized and submission changes require ownership
+✔ paper workflow validates PDFs, enforces deadlines and ownership, and retains private versions
+✔ peer review scopes assignments, blocks conflicts, validates reviews, protects editor comments, and records decisions
+✔ password reset tokens expire and can be used only once; SMTP absence is reported honestly
+✔ required email verification blocks registration until an email provider is configured
+✔ certificate eligibility evaluation reflects real participant activity and rejects ineligible users
+✔ eligible user claims certificate, prevents duplicate issuance, and notification is generated
+✔ download certificate generates valid downloadable PDF binary with correct headers
+✔ public certificate verification, authorized revocation with reason, and verification reflection
+✔ notification preferences, read/unread states, and mark-all-read operations
+✔ conference analytics, exports (CSV and PDF summary), and scope protection
+✔ public can query conference registration tiers and availability
+✔ attendee registers, receives unique reference, and payment row is initialized with server validated fee
+✔ duplicate registration for same conference is strictly rejected
+✔ capacity limit prevents excess registrations
+✔ receipt upload to private storage updates payment status and enforces role-based access
+✔ admin verification queue, receipt approval, financial report and reconciliation
+✔ rejection flow records reason and allows attendee re-upload
+✔ refund workflow: attendee requests refund, admin processes with bank reference
+✔ organizer creates session with validation, while overlapping room/chair conflicts are rejected
+✔ assign accepted paper to presentation slot, non-accepted paper is rejected, and duplicate assignment blocked
+✔ schedule publication visibility and authorized editing notifications
+✔ personalized schedule, attendance check-in, and rotating QR token validation
+✔ session chair dashboard, presentation status updates, and attendance certificate report
+✔ unauthenticated request to protected endpoints is rejected with 401
+✔ mutation without CSRF token is rejected with 403
+✔ attendee attempting organizer administrative action is rejected with 403
+✔ invalid lifecycle transition jumps are strictly rejected by the server
+✔ public certificate verification with unknown number returns valid: false
+✔ malformed inputs are rejected with 400 validation error
+ℹ pass 39
+ℹ fail 0
+```
+
+### Frontend Build Verification
+```powershell
 npm.cmd --prefix client run build
 ```
+Builds production-ready bundles in `client/dist/` with 0 warnings or errors.
 
-The auth test suite uses an isolated in-memory PostgreSQL-compatible database, not your Supabase project. It does not claim live database connectivity.
+---
 
-## Public site and API
+## 4. Requirements & Architecture Checklist
 
-The public site provides Home, About, Conferences and Details, Important Dates, Tracks, Committee, Speakers, Schedule, Submission Guidelines, Registration Information, Contact, FAQ, Login, Register, Forgot/Reset Password, Privacy Policy, Terms, and Certificate Verification. Listings, dates, tracks, announcements, schedules, committee, speakers and certificate checks are backed by API queries. Empty states represent no published records; unavailable data shows an error instead of fake content.
+For the complete 110-point breakdown mapping every requirement to pages, API endpoints, PostgreSQL tables, and automated test cases, see:
+👉 [docs/REQUIREMENTS_CHECKLIST.md](docs/REQUIREMENTS_CHECKLIST.md)
 
-Auth endpoints provide registration, login/logout, sessions, profile editing, password change/reset, email verification, role-based dashboards, scoped conference memberships, and submission ownership checks. Public registration only grants Participant/Attendee. The Super Admin and conference-specific access rules are enforced on the server.
+---
 
-## Admin workspace
+## 5. Production Deployment & Security Architecture
 
-After applying `database/admin-dashboard-schema.sql`, sign in as a Super Admin or conference-scoped Conference Admin and open `/admin` (also available at `/organizer`). The workspace supports conference draft creation/editing, lifecycle actions, typed deadlines, tracks, committee/speakers/organizers/session-chair entries, announcements, FAQs, users, inquiries, live database statistics, search, filters and pagination. All changes are validated and authorized by Express; conference actions are limited to the assigned conference. Super Admin-only areas include global users, inquiries, site settings, and audit history. The public listing hides draft, unpublished, and archived conferences.
+### Hosting Recommendations
+1. **Frontend (Vite / React SPA):**
+   - **Recommended:** [Vercel](https://vercel.com/), [Cloudflare Pages](https://pages.cloudflare.com/), or [Netlify](https://www.netlify.com/).
+   - Set Build Command: `npm run build`
+   - Set Output Directory: `dist`
+   - Set Environment Variable: `VITE_API_BASE_URL=https://api.yourconference.bup.edu.bd`
+2. **Backend (Node.js Express API):**
+   - **Recommended:** [Render](https://render.com/), [Railway](https://railway.app/), or [AWS App Runner](https://aws.amazon.com/apprunner/).
+   - Start Command: `npm start`
+   - Enable HTTPS / SSL termination.
+   - Configure environment variables from `server/.env.example`.
 
-In Supabase **SQL Editor → New query**, paste and run `database/admin-dashboard-schema.sql` after the core and auth schemas. This idempotent migration adds conference modes and organizer associations, lifecycle statuses, phase deadlines, track topics, public conference people, FAQs, and public settings. It creates no sample data. `/api/admin/settings` provides protected setting management; all mutations require the existing authenticated session and CSRF token.
+### Production CORS & Cookie Configuration
+- In `server/.env`, set `CLIENT_ORIGIN` to the exact frontend origin:
+  ```env
+  CLIENT_ORIGIN=https://conference.bup.edu.bd
+  NODE_ENV=production
+  ```
+- When `NODE_ENV=production`, session cookies are automatically set with `Secure: true`, `HttpOnly: true`, and `SameSite: Lax` to prevent cross-site leakage.
 
-## Author submissions
+### Database Connection & Connection Pooler
+- When deploying to serverless platforms, use Supabase's **Session or Transaction Pooler** URI (port `6543`) instead of direct connection (port `5432`) to manage connections efficiently.
+- Supabase automatically performs automated daily backups. Point-in-time recovery (PITR) is available on Supabase Pro.
 
-Authors can manage corresponding-author details and papers at `/author/submissions`. The form supports multiple authors, track and category selection, validated PDF uploads, a server-generated BUP paper code, revision and camera-ready versions, withdrawal requests, decisions, deadlines, and registration status. Private files are stored in a private Supabase Storage bucket, and the API issues a short-lived signed link only after checking author, reviewer, or conference-manager access. See [submission-workflow.md](docs/submission-workflow.md) for schema order, private bucket setup, and server environment variables.
+### Secrets Management
+- **Never commit `.env` files.** The repository `.gitignore` strictly ignores `.env` and `.env.*`.
+- **Privileged Credentials:** The `SUPABASE_SERVICE_ROLE_KEY`, `CSRF_SECRET`, and `DATABASE_URL` must remain on the backend server only. They are never prefixed with `VITE_` and never included in frontend builds.
 
-Create a private bucket named `manuscripts` in Supabase Storage and configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` in `server\.env`. Keep the service-role secret on the server. Local tests mock storage and use an in-memory database; they do not establish live Supabase connectivity.
+---
 
-## Peer review
+## 6. Real-World External Integration Checklist
 
-Reviewers can update expertise and availability at `/reviewer`; conference organizers manage blind-review mode, criteria, assignments, deadlines, review summaries, conflicts, and editorial decisions at `/admin/reviews`. Reviewer permissions are scoped to their own assignment, while final decisions and confidential editor comments are limited to authorized organizers. Decisions create in-app notifications; email delivery uses the existing optional SMTP provider. See [peer-review.md](docs/peer-review.md) for assignment, conflict, double-blind, and decision behavior.
-
-## Structure
-
-```text
-client/       React + Vite public site, account pages, and author workspace
-server/       Express API, server-side auth, RBAC, submissions, and private uploads
-database/     Core, auth, admin, and submission migrations for Supabase PostgreSQL
-docs/         Supabase, authentication, admin, and submission setup
-logo.png      Original BUP logo
-hero.jpg      Original conference hero image (used at /hero.jpg)
-```
+Before going live in production, configure the following external credentials:
+1. **Live Supabase Credentials:** Set `DATABASE_URL`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` to your live Supabase project.
+2. **SMTP Email Service (Optional):**
+   - To send actual password reset, email verification, and conference notifications to users' inboxes, configure SMTP credentials in `server/.env`:
+     ```env
+     SMTP_HOST=smtp.gmail.com
+     SMTP_PORT=587
+     SMTP_SECURE=false
+     SMTP_USER=conference@bup.edu.bd
+     SMTP_PASSWORD=your-app-password
+     MAIL_FROM="BUP Conference Management <conference@bup.edu.bd>"
+     ```
+   - If SMTP is not provided, the platform functions fully with in-app notifications and records delivery outcome as `'not_configured'`.
+3. **Institutional Custom Domain & SSL:** Map DNS records for `conference.bup.edu.bd` with automatic Let's Encrypt TLS certificates.

@@ -166,7 +166,12 @@ router.get('/author/submissions', dbRequired, requireAuth, async (req,res,next)=
       (select deadline_at from public.conference_deadlines d where d.conference_id=c.id and d.deadline_type='camera_ready') camera_ready_deadline,
       r.status registration_status,
       (select json_agg(json_build_object('id',a.id,'fullName',a.full_name,'email',a.email,'affiliation',a.institution,'isCorresponding',a.is_corresponding) order by a.author_order) from public.authors a where a.submission_id=s.id) authors,
-      (select count(*)::int from public.submission_versions v where v.submission_id=s.id) version_count
+      (select count(*)::int from public.submission_versions v where v.submission_id=s.id) version_count,
+      (select coalesce(json_agg(json_build_object('id',v.id,'version_number',v.version_number,'version_type',v.version_type,'created_at',v.created_at) order by v.version_number desc),'[]'::json) from public.submission_versions v where v.submission_id=s.id) versions,
+      case when s.status = any(array['accepted','revision_required','rejected','camera_ready','finalized']::text[]) then
+        (select coalesce(json_agg(json_build_object('comments',rev.comments_to_authors,'score',rev.score,'submitted_at',rev.submitted_at) order by rev.submitted_at),'[]'::json)
+         from public.reviews rev where rev.submission_id=s.id and rev.status='submitted' and rev.comments_to_authors is not null)
+      else '[]'::json end as reviews
       from public.submissions s join public.conferences c on c.id=s.conference_id
       left join public.registrations r on r.conference_id=c.id and r.user_id=$1
       where s.submitted_by=$1 or exists(select 1 from public.authors a where a.submission_id=s.id and a.user_id=$1)
